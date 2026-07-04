@@ -1,4 +1,7 @@
-use crate::models::{IceServer, ServerConfig, ServerMessage};
+use crate::{
+    models::{IceServer, ServerConfig, ServerMessage},
+    turn_relay::TurnConfig,
+};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
 
@@ -6,6 +9,7 @@ use tokio::sync::{mpsc, RwLock};
 pub struct AppState {
     rooms: Arc<RwLock<HashMap<String, Room>>>,
     config: ServerConfig,
+    turn_config: TurnConfig,
 }
 
 #[derive(Default)]
@@ -14,17 +18,24 @@ struct Room {
 }
 
 impl AppState {
-    pub fn new(ice_server_args: Vec<String>) -> Self {
+    pub fn new(turn_config: TurnConfig) -> Self {
         Self {
             rooms: Arc::new(RwLock::new(HashMap::new())),
             config: ServerConfig {
-                ice_servers: parse_ice_servers(ice_server_args),
+                ice_servers: vec![IceServer {
+                    urls: "stun:stun.l.google.com:19302".to_string(),
+                    username: None,
+                    credential: None,
+                }],
             },
+            turn_config,
         }
     }
 
-    pub fn config(&self) -> ServerConfig {
-        self.config.clone()
+    pub fn config(&self, host: &str) -> ServerConfig {
+        let mut config = self.config.clone();
+        config.ice_servers.push(self.turn_config.ice_server(host));
+        config
     }
 
     pub async fn join(
@@ -92,37 +103,4 @@ impl AppState {
             data,
         });
     }
-}
-
-fn parse_ice_servers(args: Vec<String>) -> Vec<IceServer> {
-    let args = if args.is_empty() {
-        vec!["stun:stun.l.google.com:19302".to_string()]
-    } else {
-        args
-    };
-
-    args.into_iter()
-        .filter_map(|arg| {
-            let mut parts = arg.splitn(3, ',').map(str::trim);
-            let urls = parts.next()?.to_string();
-            if urls.is_empty() {
-                return None;
-            }
-
-            let username = parts
-                .next()
-                .filter(|value| !value.is_empty())
-                .map(ToOwned::to_owned);
-            let credential = parts
-                .next()
-                .filter(|value| !value.is_empty())
-                .map(ToOwned::to_owned);
-
-            Some(IceServer {
-                urls,
-                username,
-                credential,
-            })
-        })
-        .collect()
 }

@@ -1,5 +1,4 @@
 use clap::Parser;
-use std::net::SocketAddr;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -8,13 +7,18 @@ use std::net::SocketAddr;
     about = "Small password-in-URL clipboard and file relay server"
 )]
 pub struct Args {
-    #[arg(long, default_value = "0.0.0.0:7259")]
-    pub bind: SocketAddr,
+    #[arg(short = 'p', long, default_value_t = 7259)]
+    pub port: u16,
 
-    #[arg(
-        long = "ice-server",
-        value_name = "URL[,USERNAME,CREDENTIAL]",
-        help = "Repeatable WebRTC ICE server. Example: --ice-server stun:stun.l.google.com:19302 --ice-server turns:turn.example.com:5349,user,pass"
-    )]
-    pub ice_server: Vec<String>,
+    #[arg(short = 't', long = "turn-port", default_value_t = 3478)]
+    pub turn_port: u16,
+
+    #[arg(short = 'i', long = "ip", value_name = "PUBLIC_IP")]
+    pub turn_public_ip: Option<String>,
+
+    #[arg(short = 'u', long = "username", value_name = "USERNAME")]
+    pub turn_username: Option<String>,
+
+    #[arg(short = 'c', long = "credential", value_name = "PASSWORD")]
+    pub turn_credential: Option<String>,
 }

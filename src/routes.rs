@@ -8,6 +8,7 @@ use axum::{
         ws::{Message, WebSocket, WebSocketUpgrade},
         State,
     },
+    http::HeaderMap,
     response::Html,
     routing::get,
     Json, Router,
@@ -32,8 +33,12 @@ async fn app_page() -> Html<&'static str> {
     Html(APP_HTML)
 }
 
-async fn server_config(State(state): State<AppState>) -> Json<ServerConfig> {
-    Json(state.config())
+async fn server_config(State(state): State<AppState>, headers: HeaderMap) -> Json<ServerConfig> {
+    let host = headers
+        .get(axum::http::header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("localhost");
+    Json(state.config(host))
 }
 
 async fn server_ws(
