@@ -19,8 +19,8 @@ use tokio::sync::mpsc;
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/", get(root))
-        .route("/server/config", get(server_config))
-        .route("/server", get(server_ws))
+        .route("/clip_bridge_server/config", get(server_config))
+        .route("/clip_bridge_server", get(server_ws))
         .fallback(get(app_page))
         .with_state(state)
 }
@@ -38,6 +38,9 @@ async fn server_config(State(state): State<AppState>, headers: HeaderMap) -> Jso
         .get(axum::http::header::HOST)
         .and_then(|value| value.to_str().ok())
         .unwrap_or("localhost");
+    if state.debug() {
+        println!("debug http config host={host}");
+    }
     Json(state.config(host))
 }
 
@@ -82,6 +85,15 @@ async fn signaling_peer(socket: WebSocket, state: AppState) {
                         let (Some(room), Some(from)) = (&joined_room, &peer_id) else {
                             continue;
                         };
+                        if state.debug() {
+                            println!(
+                                "debug ws signal room={} from={} to={} type={}",
+                                room,
+                                from,
+                                to,
+                                signal_type(&data)
+                            );
+                        }
                         state.forward_signal(room, from, &to, data).await;
                     }
                 }
@@ -101,4 +113,10 @@ async fn signaling_peer(socket: WebSocket, state: AppState) {
     if let (Some(room), Some(peer)) = (joined_room, peer_id) {
         state.leave(&room, &peer).await;
     }
+}
+
+fn signal_type(data: &serde_json::Value) -> &str {
+    data.get("type")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown")
 }

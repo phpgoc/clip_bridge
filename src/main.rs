@@ -1,5 +1,6 @@
 mod cli;
 mod html;
+mod ice;
 mod models;
 mod routes;
 mod state;
@@ -31,8 +32,11 @@ async fn main() -> std::io::Result<()> {
         }
         Err(err) => return Err(err),
     };
-    let _turn_server = turn_relay::start(turn_config.clone()).await?;
-    let state = AppState::new(turn_config);
+    if args.debug {
+        println!("debug logging enabled; clipboard text and file bytes are not logged");
+    }
+    let _turn_server = turn_relay::start(turn_config.clone(), args.debug).await?;
+    let state = AppState::new(turn_config, args.debug);
     let app = routes::router(state);
 
     let listener = tokio::net::TcpListener::bind(bind).await?;

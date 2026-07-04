@@ -58,9 +58,17 @@ impl TurnConfig {
             credential: Some(self.credential.clone()),
         }
     }
+
+    pub fn stun_server(&self, request_host: &str) -> IceServer {
+        IceServer {
+            urls: format!("stun:{}:{}", turn_host(request_host), self.bind.port()),
+            username: None,
+            credential: None,
+        }
+    }
 }
 
-pub async fn start(config: TurnConfig) -> IoResult<Server> {
+pub async fn start(config: TurnConfig, debug: bool) -> IoResult<Server> {
     let conn = Arc::new(UdpSocket::bind(config.bind).await?);
     let local_addr = conn.local_addr()?;
     let mut credentials = HashMap::new();
@@ -79,7 +87,7 @@ pub async fn start(config: TurnConfig) -> IoResult<Server> {
             }),
         }],
         realm: TURN_REALM.to_string(),
-        auth_handler: Arc::new(StaticAuthHandler { credentials }),
+        auth_handler: Arc::new(StaticAuthHandler { credentials, debug }),
         channel_bind_timeout: Duration::from_secs(0),
         alloc_close_notify: None,
     })
@@ -97,6 +105,7 @@ pub async fn start(config: TurnConfig) -> IoResult<Server> {
 
 struct StaticAuthHandler {
     credentials: HashMap<String, Vec<u8>>,
+    debug: bool,
 }
 
 impl AuthHandler for StaticAuthHandler {
@@ -104,12 +113,22 @@ impl AuthHandler for StaticAuthHandler {
         &self,
         username: &str,
         _realm: &str,
-        _src_addr: SocketAddr,
+        src_addr: SocketAddr,
     ) -> Result<Vec<u8>, TurnError> {
-        self.credentials
+        let result = self
+            .credentials
             .get(username)
             .cloned()
-            .ok_or(TurnError::ErrFakeErr)
+            .ok_or(TurnError::ErrFakeErr);
+        if self.debug {
+            println!(
+                "debug turn auth username={} src={} accepted={}",
+                username,
+                src_addr,
+                result.is_ok()
+            );
+        }
+        result
     }
 }
 
@@ -164,5 +183,10 @@ mod tests {
         assert_eq!(ice_server.urls, "turn:127.0.0.1:3478");
         assert_eq!(ice_server.username.as_deref(), Some("user"));
         assert_eq!(ice_server.credential.as_deref(), Some("pass"));
+
+        let stun_server = config.stun_server("127.0.0.1:7259");
+        assert_eq!(stun_server.urls, "stun:127.0.0.1:3478");
+        assert_eq!(stun_server.username, None);
+        assert_eq!(stun_server.credential, None);
     }
 }

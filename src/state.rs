@@ -1,5 +1,6 @@
 use crate::{
-    models::{IceServer, ServerConfig, ServerMessage},
+    ice,
+    models::{ServerConfig, ServerMessage},
     turn_relay::TurnConfig,
 };
 use std::{collections::HashMap, sync::Arc};
@@ -10,6 +11,7 @@ pub struct AppState {
     rooms: Arc<RwLock<HashMap<String, Room>>>,
     config: ServerConfig,
     turn_config: TurnConfig,
+    debug: bool,
 }
 
 #[derive(Default)]
@@ -18,22 +20,26 @@ struct Room {
 }
 
 impl AppState {
-    pub fn new(turn_config: TurnConfig) -> Self {
+    pub fn new(turn_config: TurnConfig, debug: bool) -> Self {
         Self {
             rooms: Arc::new(RwLock::new(HashMap::new())),
             config: ServerConfig {
-                ice_servers: vec![IceServer {
-                    urls: "stun:stun.l.google.com:19302".to_string(),
-                    username: None,
-                    credential: None,
-                }],
+                ice_servers: ice::public_stun_servers(),
             },
             turn_config,
+            debug,
         }
+    }
+
+    pub fn debug(&self) -> bool {
+        self.debug
     }
 
     pub fn config(&self, host: &str) -> ServerConfig {
         let mut config = self.config.clone();
+        config
+            .ice_servers
+            .insert(0, self.turn_config.stun_server(host));
         config.ice_servers.push(self.turn_config.ice_server(host));
         config
     }
@@ -54,6 +60,14 @@ impl AppState {
             .collect::<Vec<_>>();
 
         room.peers.insert(peer_id.to_string(), tx);
+        if self.debug {
+            println!(
+                "debug ws join room={} peer={} existing_peers={}",
+                room_name,
+                peer_id,
+                peers.len()
+            );
+        }
         for (id, peer_tx) in &room.peers {
             if id != peer_id {
                 let _ = peer_tx.send(ServerMessage::PeerJoined {
@@ -72,6 +86,9 @@ impl AppState {
         };
 
         room.peers.remove(peer_id);
+        if self.debug {
+            println!("debug ws leave room={room_name} peer={peer_id}");
+        }
         for peer_tx in room.peers.values() {
             let _ = peer_tx.send(ServerMessage::PeerLeft {
                 peer_id: peer_id.to_string(),

@@ -21,4 +21,7 @@ pub struct Args {
 
     #[arg(short = 'c', long = "credential", value_name = "PASSWORD")]
     pub turn_credential: Option<String>,
+
+    #[arg(short = 'd', long = "debug")]
+    pub debug: bool,
 }
