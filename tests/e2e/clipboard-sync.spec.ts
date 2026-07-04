@@ -45,6 +45,17 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
         expect(right.getByTestId('empty-history')).toBeVisible(),
       ]);
 
+      const iceConfig = await left.evaluate(() => fetch('/server/config').then((res) => res.json()));
+      expect(iceConfig.iceServers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            urls: 'turn:127.0.0.1:34780',
+            username: 'e2e',
+            credential: 'e2e',
+          }),
+        ]),
+      );
+
       await Promise.all([
         placeWindow(left, 40, 40, 780, 760),
         placeWindow(right, 860, 40, 780, 760),
@@ -63,16 +74,21 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
       });
     });
 
-    await test.step('left page reads local clipboard and sends it directly to right page', async () => {
+    await test.step('left blank click reads local clipboard and sends it directly to right page', async () => {
       await left.evaluate(async (text) => {
         await navigator.clipboard.writeText(text);
       }, payload);
 
-      await left.getByTestId('clipboard-click').click();
+      await left.mouse.click(5, 700);
 
-      await expect(left.getByTestId('toast')).toHaveText('已通过 P2P 发送');
+      await expect(left.getByTestId('toast')).toHaveText('Sent via P2P');
+      await expect(left.getByTestId('history-row')).toHaveCount(1);
       await expect(right.getByTestId('history-row')).toHaveCount(1);
       await expect(right.getByTestId('history-select')).toBeChecked();
+
+      await left.mouse.click(5, 700);
+      await expect(left.getByTestId('toast')).toHaveText('No clipboard changes');
+      await expect(right.getByTestId('history-row')).toHaveCount(1);
 
       await testInfo.attach('02-right-received-p2p.png', {
         body: await right.screenshot({ fullPage: true }),
@@ -87,7 +103,7 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
 
       await right.getByTestId('history-row').click();
 
-      await expect(right.getByTestId('toast')).toHaveText('已复制到本机剪贴板');
+      await expect(right.getByTestId('toast')).toHaveText('Copied to local clipboard');
       await expect
         .poll(() => right.evaluate(() => navigator.clipboard.readText()))
         .toBe(payload);
@@ -104,6 +120,7 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
 
       await expect(right.getByTestId('file-card')).toHaveClass(/show/);
       await expect(right.getByTestId('file-name')).toHaveText(fileName);
+      await expect(right.getByTestId('file-meta')).toContainText(/direct|TURN relay|checking connection/);
 
       const downloadPromise = right.waitForEvent('download');
       await right.getByTestId('file-download').click();
@@ -118,13 +135,13 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
       });
     });
 
-    await test.step('clear is also sent peer to peer', async () => {
+    await test.step('clear only clears the local page', async () => {
       await right.getByTestId('clear').click();
 
       await expect(right.getByTestId('empty-history')).toBeVisible();
-      await expect(left.getByTestId('empty-history')).toBeVisible();
+      await expect(left.getByTestId('history-row')).toHaveCount(1);
 
-      await testInfo.attach('04-cleared-p2p.png', {
+      await testInfo.attach('04-right-cleared-only-local.png', {
         body: await right.screenshot({ fullPage: true }),
         contentType: 'image/png',
       });

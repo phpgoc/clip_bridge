@@ -27,7 +27,7 @@ export default defineConfig({
     video: 'on',
   },
   webServer: {
-    command: `cargo run -- --bind 127.0.0.1:${port}`,
+    command: `cargo run -- -p ${port} -t 34780 -i 127.0.0.1 -u e2e -c e2e`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
