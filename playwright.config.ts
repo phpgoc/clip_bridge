@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 const port = Number(process.env.E2E_PORT ?? 7359);
 const baseURL = `http://127.0.0.1:${port}`;
+const isHeadedRun = process.env.npm_lifecycle_event === 'test:e2e:headed' || process.argv.includes('--headed');
+const slowMo = Number(process.env.E2E_SLOW_MO ?? (isHeadedRun ? 2000 : 120));
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -20,7 +22,7 @@ export default defineConfig({
     baseURL,
     headless: false,
     launchOptions: {
-      slowMo: Number(process.env.E2E_SLOW_MO ?? 120),
+      slowMo,
     },
     screenshot: 'on',
     trace: 'on',
