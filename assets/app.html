@@ -22,6 +22,58 @@
     button { font: inherit; }
     .shell { width: min(760px, calc(100vw - 24px)); margin: 0 auto; padding: 18px 0 28px; }
     .topbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
+    .github-link {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text);
+      background: var(--panel);
+    }
+    .github-link:hover { border-color: var(--strong); color: var(--strong); }
+    .github-link svg { width: 20px; height: 20px; fill: currentColor; }
+    .room-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--muted);
+      background: var(--panel);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .room-count::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+    }
+    .room-count.active { border-color: #16a34a; color: #166534; background: #dcfce7; }
+    .room-count.active::before { background: #16a34a; }
+    .room-count.warn { border-color: #dc2626; color: #991b1b; background: #fee2e2; }
+    .room-count.warn::before { background: #dc2626; }
+    .help-button {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text);
+      background: var(--panel);
+      cursor: pointer;
+      font-weight: 800;
+    }
+    .help-button:hover { border-color: var(--strong); color: var(--strong); }
     .button {
       min-height: 38px;
       padding: 0 14px;
@@ -48,7 +100,34 @@
     }
     .file-card.show { display: grid; }
     .file-name { overflow-wrap: anywhere; }
-    .file-meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .file-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 12px; }
+    .transport-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-weight: 700;
+      color: var(--text);
+      background: color-mix(in srgb, var(--panel) 86%, transparent);
+    }
+    .transport-badge::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .transport-badge.direct { border-color: #16a34a; color: #166534; background: #dcfce7; }
+    .transport-badge.direct::before { background: #16a34a; }
+    .transport-badge.turn { border-color: #f97316; color: #9a3412; background: #ffedd5; }
+    .transport-badge.turn::before { background: #f97316; }
+    .transport-badge.checking { border-color: #94a3b8; color: #475569; background: #f1f5f9; }
+    .transport-badge.checking::before { background: #94a3b8; }
+    .transport-badge.local { border-color: #1768e5; color: #174ea6; background: #dbeafe; }
+    .transport-badge.local::before { background: #1768e5; }
     .list {
       display: grid;
       gap: 8px;
@@ -94,11 +173,45 @@
       background: color-mix(in srgb, var(--panel) 80%, transparent);
     }
     .hidden { display: none; }
+    .help-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: start center;
+      padding: 70px 12px 20px;
+      background: color-mix(in srgb, var(--bg) 74%, transparent);
+      z-index: 10;
+    }
+    .help-overlay.show { display: grid; }
+    .help-panel {
+      width: min(460px, 100%);
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 18px 44px rgb(0 0 0 / 18%);
+    }
+    .help-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .help-title { margin: 0; font-size: 16px; }
+    .help-close {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text);
+      background: var(--panel);
+      cursor: pointer;
+    }
+    .help-list { margin: 0; padding-left: 20px; color: var(--muted); line-height: 1.55; }
+    .help-list strong { color: var(--text); }
 
     @media (max-width: 560px) {
       .shell { width: min(100vw - 16px, 760px); padding-top: 10px; }
       .topbar { justify-content: stretch; }
       .button { flex: 1; }
+      .github-link { width: 38px; flex-basis: 38px; }
+      .help-button { width: 38px; flex-basis: 38px; }
+      .room-count { flex: 0 0 auto; padding: 0 10px; }
       .file-card { grid-template-columns: 1fr; }
     }
 
@@ -110,6 +223,13 @@
 <body>
   <main class="shell">
     <div class="topbar">
+      <div id="roomCount" data-testid="room-count" class="room-count">1 in room</div>
+      <button id="helpButton" data-testid="help-open" class="help-button" aria-label="How it works" title="How it works">?</button>
+      <a class="github-link" href="https://github.com/phpgoc/clip_bridge" target="_blank" rel="noreferrer" aria-label="GitHub repository" title="GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.09 3.29 9.4 7.86 10.93.58.1.79-.25.79-.56v-2.14c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18A10.93 10.93 0 0 1 12 6.08c.98 0 1.96.13 2.88.39 2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.38-5.25 5.67.41.35.78 1.05.78 2.12v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/>
+        </svg>
+      </a>
       <input id="fileInput" data-testid="file-input" class="hidden" type="file">
       <button id="fileButton" data-testid="file-send" class="button primary">Send File</button>
       <button id="clearButton" data-testid="clear" class="button danger">Clear</button>
@@ -128,10 +248,29 @@
     <ul id="history" data-testid="history-list" class="list"></ul>
   </main>
 
+  <div id="helpOverlay" data-testid="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="help-panel">
+      <div class="help-head">
+        <h2 id="helpTitle" class="help-title">How this room works</h2>
+        <button id="helpClose" data-testid="help-close" class="help-close" aria-label="Close">x</button>
+      </div>
+      <ul class="help-list">
+        <li><strong>Click blank space</strong> to read this device clipboard. If it changed, it is sent to room peers.</li>
+        <li><strong>Click a list row</strong> to copy that text into this device clipboard.</li>
+        <li><strong>Send File</strong> offers the file name first. Bytes move only after another peer clicks Download.</li>
+        <li><strong>Room count matters.</strong> Anyone with this URL can receive new clipboard items and file offers.</li>
+      </ul>
+    </div>
+  </div>
+
   <script>
     const room = decodeURIComponent(location.pathname.replace(/^\/+/, '')) || 'default';
     const peerId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     const clearButtonEl = document.getElementById('clearButton');
+    const helpButtonEl = document.getElementById('helpButton');
+    const helpOverlayEl = document.getElementById('helpOverlay');
+    const helpCloseEl = document.getElementById('helpClose');
+    const roomCountEl = document.getElementById('roomCount');
     const toastEl = document.getElementById('toast');
     const historyEl = document.getElementById('history');
     const fileInputEl = document.getElementById('fileInput');
@@ -142,6 +281,7 @@
     const downloadButtonEl = document.getElementById('downloadButton');
     let rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
     const peers = new Map();
+    const roomPeers = new Set();
     const seenMessages = new Set();
     const outboundFiles = new Map();
     const inboundFiles = new Map();
@@ -154,6 +294,7 @@
     window.__serverClipboard = {
       peerId: () => peerId,
       peerCount: () => openChannels().length,
+      roomCount: () => roomPeers.size + 1,
       historyCount: () => historyItems.length,
       currentFileName: () => currentFileOffer?.name || '',
     };
@@ -172,6 +313,17 @@
       if (size < 1024) return size + ' B';
       if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KB';
       return (size / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function renderRoomCount() {
+      const count = roomPeers.size + 1;
+      roomCountEl.textContent = `${count} in room`;
+      roomCountEl.className = 'room-count';
+      if (count === 2) roomCountEl.classList.add('active');
+      if (count > 2) roomCountEl.classList.add('warn');
+      roomCountEl.title = count > 2
+        ? 'More than two peers are in this room'
+        : 'Current peers in this room';
     }
 
     function render() {
@@ -220,18 +372,29 @@
       if (!currentFileOffer) return;
       fileNameEl.textContent = currentFileOffer.name;
       const transport = currentFileOffer.peerId === peerId
-        ? 'local sender'
-        : transportLabel(currentFileOffer.peerId);
-      fileMetaEl.textContent = `${formatBytes(currentFileOffer.size)} - ${currentFileOffer.status || 'ready to download'} - ${transport}`;
+        ? { label: 'local sender', kind: 'local' }
+        : transportInfo(currentFileOffer.peerId);
+      fileMetaEl.replaceChildren(
+        document.createTextNode(`${formatBytes(currentFileOffer.size)} - ${currentFileOffer.status || 'ready to download'} - `),
+        transportBadge(transport),
+      );
       downloadButtonEl.disabled = currentFileOffer.status === 'transferring';
       downloadButtonEl.textContent = currentFileOffer.status === 'transferring' ? 'Transferring' : 'Download';
     }
 
-    function transportLabel(remoteId) {
+    function transportInfo(remoteId) {
       const transport = peers.get(remoteId)?.transport;
-      if (transport === 'turn') return 'TURN relay';
-      if (transport === 'direct') return 'direct';
-      return 'checking connection';
+      if (transport === 'turn') return { label: 'TURN relay', kind: 'turn' };
+      if (transport === 'direct') return { label: 'direct', kind: 'direct' };
+      return { label: 'checking connection', kind: 'checking' };
+    }
+
+    function transportBadge(transport) {
+      const badge = document.createElement('span');
+      badge.className = `transport-badge ${transport.kind}`;
+      badge.dataset.testid = 'transport-badge';
+      badge.textContent = transport.label;
+      return badge;
     }
 
     function addItem(text, messageId = `${peerId}-${Date.now()}-${Math.random()}`) {
@@ -274,7 +437,7 @@
 
     function connectSignaling() {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      signalSocket = new WebSocket(`${protocol}//${location.host}/server`);
+      signalSocket = new WebSocket(`${protocol}//${location.host}/clip_bridge_server`);
 
       signalSocket.onopen = () => {
         sendSignal({ kind: 'join', room, peer_id: peerId });
@@ -282,12 +445,25 @@
       signalSocket.onmessage = async (event) => {
         const message = JSON.parse(event.data);
         if (message.kind === 'peers') {
+          roomPeers.clear();
+          for (const remoteId of message.peers) roomPeers.add(remoteId);
+          renderRoomCount();
           for (const remoteId of message.peers) await createPeer(remoteId, true);
         }
-        if (message.kind === 'peer_left') closePeer(message.peer_id);
+        if (message.kind === 'peer_joined') {
+          roomPeers.add(message.peer_id);
+          renderRoomCount();
+        }
+        if (message.kind === 'peer_left') {
+          roomPeers.delete(message.peer_id);
+          renderRoomCount();
+          closePeer(message.peer_id);
+        }
         if (message.kind === 'signal') await handleSignal(message.from, message.data);
       };
       signalSocket.onclose = () => {
+        roomPeers.clear();
+        renderRoomCount();
         for (const remoteId of peers.keys()) closePeer(remoteId);
         setTimeout(connectSignaling, 1200);
       };
@@ -295,7 +471,7 @@
 
     async function loadServerConfig() {
       try {
-        const res = await fetch('/server/config', { cache: 'no-store' });
+        const res = await fetch('/clip_bridge_server/config', { cache: 'no-store' });
         if (!res.ok) return;
         const config = await res.json();
         if (Array.isArray(config.iceServers) && config.iceServers.length) {
@@ -657,11 +833,27 @@
     }
 
     function isBlankClickTarget(target) {
-      return !target.closest('button, input, a, label, .row, .file-card');
+      return !target.closest('button, input, a, label, .row, .file-card, .help-panel, .help-overlay');
+    }
+
+    function openHelp() {
+      helpOverlayEl.classList.add('show');
+    }
+
+    function closeHelp() {
+      helpOverlayEl.classList.remove('show');
     }
 
     window.addEventListener('click', (event) => {
       if (event.button === 0 && isBlankClickTarget(event.target)) clickClipboard();
+    });
+    helpButtonEl.addEventListener('click', openHelp);
+    helpCloseEl.addEventListener('click', closeHelp);
+    helpOverlayEl.addEventListener('click', (event) => {
+      if (event.target === helpOverlayEl) closeHelp();
+    });
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeHelp();
     });
     clearButtonEl.addEventListener('click', clearLocalHistory);
     fileButtonEl.addEventListener('click', chooseFile);
@@ -669,6 +861,7 @@
     downloadButtonEl.addEventListener('click', requestCurrentFile);
 
     async function start() {
+      renderRoomCount();
       render();
       renderFileOffer();
       await loadServerConfig();
