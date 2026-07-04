@@ -19,7 +19,7 @@ use turn::{
 };
 use util::vnet::net::Net;
 
-const TURN_REALM: &str = "clip_bridge";
+const TURN_REALM: &str = "p2p_clip_bridge_server";
 
 #[derive(Clone, Debug)]
 pub struct TurnConfig {
@@ -37,11 +37,11 @@ impl TurnConfig {
         credential: Option<&str>,
     ) -> IoResult<Self> {
         let bind = SocketAddr::new(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED), turn_port);
-        let public_ip = required_value(public_ip, "CLIP_BRIDGE_TURN_PUBLIC_IP")?
+        let public_ip = required_value(public_ip, "P2P_CLIP_BRIDGE_SERVER_TURN_PUBLIC_IP")?
             .parse::<IpAddr>()
             .map_err(|err| invalid_input(format!("invalid TURN public IP: {err}")))?;
-        let username = required_value(username, "CLIP_BRIDGE_TURN_USERNAME")?;
-        let credential = required_value(credential, "CLIP_BRIDGE_TURN_CREDENTIAL")?;
+        let username = required_value(username, "P2P_CLIP_BRIDGE_SERVER_TURN_USERNAME")?;
+        let credential = required_value(credential, "P2P_CLIP_BRIDGE_SERVER_TURN_CREDENTIAL")?;
 
         Ok(Self {
             bind,
@@ -95,7 +95,7 @@ pub async fn start(config: TurnConfig, debug: bool) -> IoResult<Server> {
     .map_err(turn_error)?;
 
     println!(
-        "clip_bridge built-in TURN listening on udp://{} as turn:<current-host>:{}",
+        "p2p_clip_bridge_server built-in TURN listening on udp://{} as turn:<current-host>:{}",
         local_addr,
         local_addr.port()
     );

@@ -1,5 +1,5 @@
 {
-  "name": "clip-bridge-e2e",
+  "name": "p2p-clip-bridge-server-e2e",
   "private": true,
   "type": "module",
   "scripts": {

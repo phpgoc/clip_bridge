@@ -1,10 +1,10 @@
 [package]
-name = "clip_bridge"
+name = "p2p_clip_bridge_server"
 version = "0.1.0"
 edition = "2021"
-description = "A small WebRTC clipboard and file bridge for password-in-URL rooms"
+description = "A small P2P WebRTC clipboard and file bridge server for password-in-URL rooms"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/phpgoc/clip_bridge"
+repository = "https://github.com/phpgoc/p2p_clip_bridge_server"
 readme = "README.md"
 keywords = ["clipboard", "webrtc", "p2p", "file-transfer"]
 categories = ["command-line-utilities", "web-programming::http-server"]

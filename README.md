@@ -1,8 +1,8 @@
-# Clip Bridge
+# P2P Clip Bridge Server
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-Clip Bridge is a small Rust server for sharing clipboard text and files between devices in the same URL room.
+P2P Clip Bridge Server is a small Rust server for sharing clipboard text and files between devices in the same URL room.
 
 - The room password is the URL path, for example `/my-room`.
 - Clipboard text and file bytes are transferred over WebRTC DataChannels.
@@ -14,22 +14,22 @@ Clip Bridge is a small Rust server for sharing clipboard text and files between 
 ## Run
 
 ```bash
-clip_bridge -i 203.0.113.10 -u user -c pass -p 7259
+p2p_clip_bridge_server -i 203.0.113.10 -u user -c pass -p 7259
 ```
 
 With an explicit TURN UDP port:
 
 ```bash
-clip_bridge -i 203.0.113.10 -u user -c pass -p 7259 -t 3478
+p2p_clip_bridge_server -i 203.0.113.10 -u user -c pass -p 7259 -t 3478
 ```
 
 Environment variables are also supported:
 
 ```bash
-export CLIP_BRIDGE_TURN_PUBLIC_IP=127.0.0.1
-export CLIP_BRIDGE_TURN_USERNAME=user
-export CLIP_BRIDGE_TURN_CREDENTIAL=pass
-clip_bridge -p 7259
+export P2P_CLIP_BRIDGE_SERVER_TURN_PUBLIC_IP=127.0.0.1
+export P2P_CLIP_BRIDGE_SERVER_TURN_USERNAME=user
+export P2P_CLIP_BRIDGE_SERVER_TURN_CREDENTIAL=pass
+p2p_clip_bridge_server -p 7259
 ```
 
 Open:
@@ -40,7 +40,7 @@ https://your-domain.example/room-password
 
 ## Options
 
-Clip Bridge always listens on `0.0.0.0`. You only choose ports and TURN credentials:
+P2P Clip Bridge Server always listens on `0.0.0.0`. You only choose ports and TURN credentials:
 
 ```text
 -p, --port <PORT>              HTTP/WebSocket port, default 7259
@@ -55,7 +55,7 @@ If required TURN settings are missing, startup prints the help text and exits.
 
 ## Built-In TURN
 
-Clip Bridge starts its own UDP TURN server. The browser receives `turn:<current-host>:<turn-port>` from `/clip_bridge_server/config`, so the TURN hostname follows the page hostname.
+P2P Clip Bridge Server starts its own UDP TURN server. The browser receives `turn:<current-host>:<turn-port>` from `/clip_bridge_server/config`, so the TURN hostname follows the page hostname.
 
 Open the TURN UDP port on your server firewall, for example UDP `3478`. TLS for the web UI can still be handled by nginx.
 

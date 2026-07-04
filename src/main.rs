@@ -40,7 +40,7 @@ async fn main() -> std::io::Result<()> {
     let app = routes::router(state);
 
     let listener = tokio::net::TcpListener::bind(bind).await?;
-    println!("clip_bridge listening on http://{bind}");
+    println!("p2p_clip_bridge_server listening on http://{bind}");
     println!(
         "open http://127.0.0.1:{}/your-password locally, or use nginx/https in production",
         args.port
