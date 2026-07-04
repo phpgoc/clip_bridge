@@ -45,9 +45,18 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
         expect(right.getByTestId('empty-history')).toBeVisible(),
       ]);
 
-      const iceConfig = await left.evaluate(() => fetch('/server/config').then((res) => res.json()));
+      const iceConfig = await left.evaluate(() => fetch('/clip_bridge_server/config').then((res) => res.json()));
       expect(iceConfig.iceServers).toEqual(
         expect.arrayContaining([
+          expect.objectContaining({
+            urls: 'stun:127.0.0.1:34780',
+          }),
+          expect.objectContaining({
+            urls: 'stun:stun.miwifi.com:3478',
+          }),
+          expect.objectContaining({
+            urls: 'stun:stun.chat.bilibili.com:3478',
+          }),
           expect.objectContaining({
             urls: 'turn:127.0.0.1:34780',
             username: 'e2e',
@@ -63,6 +72,15 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
 
       await expect.poll(() => peerCount(left)).toBe(1);
       await expect.poll(() => peerCount(right)).toBe(1);
+      await Promise.all([
+        expect(left.getByTestId('room-count')).toHaveText('2 in room'),
+        expect(right.getByTestId('room-count')).toHaveText('2 in room'),
+      ]);
+      await left.getByTestId('help-open').click();
+      await expect(left.getByTestId('help-overlay')).toHaveClass(/show/);
+      await expect(left.getByTestId('help-overlay')).toContainText('Click blank space');
+      await left.getByTestId('help-close').click();
+      await expect(left.getByTestId('help-overlay')).not.toHaveClass(/show/);
 
       await testInfo.attach('01-p2p-ready-left.png', {
         body: await left.screenshot({ fullPage: true }),
@@ -121,6 +139,8 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
       await expect(right.getByTestId('file-card')).toHaveClass(/show/);
       await expect(right.getByTestId('file-name')).toHaveText(fileName);
       await expect(right.getByTestId('file-meta')).toContainText(/direct|TURN relay|checking connection/);
+      await expect(right.getByTestId('transport-badge')).toContainText(/direct|TURN relay|checking connection/);
+      await expect(right.getByTestId('transport-badge')).toHaveClass(/transport-badge/);
 
       const downloadPromise = right.waitForEvent('download');
       await right.getByTestId('file-download').click();
