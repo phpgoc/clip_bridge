@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 async function placeWindow(page: Page, left: number, top: number, width: number, height: number) {
@@ -13,6 +13,19 @@ async function placeWindow(page: Page, left: number, top: number, width: number,
 
 async function peerCount(page: Page) {
   return page.evaluate(() => window.__serverClipboard?.peerCount?.() ?? 0);
+}
+
+async function forceRelayOnly(context: BrowserContext) {
+  await context.addInitScript(() => {
+    const NativeRTCPeerConnection = window.RTCPeerConnection;
+    window.RTCPeerConnection = function (configuration?: RTCConfiguration) {
+      return new NativeRTCPeerConnection({
+        ...(configuration ?? {}),
+        iceTransportPolicy: 'relay',
+      });
+    } as typeof RTCPeerConnection;
+    window.RTCPeerConnection.prototype = NativeRTCPeerConnection.prototype;
+  });
 }
 
 test('left browser sends clipboard and file to right browser over WebRTC data channel', async ({ browser, baseURL }, testInfo) => {
@@ -165,6 +178,64 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
         body: await right.screenshot({ fullPage: true }),
         contentType: 'image/png',
       });
+    });
+  } finally {
+    await leftContext.close();
+    await rightContext.close();
+  }
+});
+
+test('relay-only browsers transfer files through the built-in TURN server', async ({ browser, baseURL }, testInfo) => {
+  const room = `relay-e2e-${Date.now()}`;
+  const roomUrl = `${baseURL}/${room}`;
+  const leftContext = await browser.newContext({
+    viewport: { width: 760, height: 720 },
+    recordVideo: { dir: testInfo.outputPath('relay-left-video') },
+  });
+  const rightContext = await browser.newContext({
+    viewport: { width: 760, height: 720 },
+    recordVideo: { dir: testInfo.outputPath('relay-right-video') },
+  });
+
+  try {
+    await Promise.all([forceRelayOnly(leftContext), forceRelayOnly(rightContext)]);
+    const left = await leftContext.newPage();
+    const right = await rightContext.newPage();
+
+    await Promise.all([left.goto(roomUrl), right.goto(roomUrl)]);
+    await Promise.all([
+      expect(left.getByTestId('empty-history')).toBeVisible(),
+      expect(right.getByTestId('empty-history')).toBeVisible(),
+    ]);
+    await Promise.all([
+      placeWindow(left, 40, 40, 780, 760),
+      placeWindow(right, 860, 40, 780, 760),
+    ]);
+    await expect.poll(() => peerCount(left)).toBe(1);
+    await expect.poll(() => peerCount(right)).toBe(1);
+
+    const fileName = 'turn-only-note.txt';
+    const fileBody = `file forced through turn ${Date.now()}`;
+    await left.getByTestId('file-input').setInputFiles({
+      name: fileName,
+      mimeType: 'text/plain',
+      buffer: Buffer.from(fileBody, 'utf8'),
+    });
+
+    await expect(right.getByTestId('file-card')).toHaveClass(/show/);
+    await expect(right.getByTestId('file-name')).toHaveText(fileName);
+    await expect(right.getByTestId('transport-badge')).toHaveText('TURN relay');
+
+    const downloadPromise = right.waitForEvent('download');
+    await right.getByTestId('file-download').click();
+    const download = await downloadPromise;
+    const savePath = testInfo.outputPath(fileName);
+    await download.saveAs(savePath);
+    await expect.poll(async () => readFile(savePath, 'utf8')).toBe(fileBody);
+
+    await testInfo.attach('relay-only-turn-download.png', {
+      body: await right.screenshot({ fullPage: true }),
+      contentType: 'image/png',
     });
   } finally {
     await leftContext.close();
