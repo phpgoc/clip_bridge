@@ -102,6 +102,32 @@
     .button.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); }
     .hint { min-height: 24px; margin: 10px 0 12px; color: var(--muted); font-size: 14px; }
     .hint.error { color: var(--danger); }
+    .manual-text-panel {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .manual-text-panel[hidden] { display: none; }
+    .manual-text-label { color: var(--muted); font-size: 13px; font-weight: 700; }
+    .manual-text-input,
+    .received-text {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+      line-height: 1.45;
+      resize: vertical;
+    }
+    .manual-text-input { min-height: 96px; padding: 10px; }
+    .received-text { min-height: 76px; padding: 8px; cursor: text; }
+    .manual-text-actions { display: flex; justify-content: flex-end; }
     .file-card {
       display: none;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -258,6 +284,14 @@
 
     <div id="toast" data-testid="toast" class="hint"></div>
 
+    <section id="manualTextPanel" data-testid="manual-text-panel" class="manual-text-panel" hidden>
+      <label class="manual-text-label" for="manualTextInput">Text to send</label>
+      <textarea id="manualTextInput" data-testid="manual-text-input" class="manual-text-input" rows="4" placeholder="Paste text here, then send it to peers already in the room."></textarea>
+      <div class="manual-text-actions">
+        <button id="manualTextSend" data-testid="manual-text-send" class="button primary">Send Text</button>
+      </div>
+    </section>
+
     <section id="fileCard" data-testid="file-card" class="file-card">
       <div>
         <div id="fileName" data-testid="file-name" class="file-name"></div>
@@ -275,12 +309,7 @@
         <h2 id="helpTitle" class="help-title">How this room works</h2>
         <button id="helpClose" data-testid="help-close" class="help-close" aria-label="Close">x</button>
       </div>
-      <ul class="help-list">
-        <li><strong>Click blank space</strong> to read this device clipboard. If it changed, it is sent to room peers.</li>
-        <li><strong>Click a list row</strong> to copy that text into this device clipboard.</li>
-        <li><strong>Send File</strong> offers the file name first. Bytes move only after another peer clicks Download.</li>
-        <li><strong>Room count matters.</strong> Anyone with this URL can receive new clipboard items and file offers.</li>
-      </ul>
+      <ul id="helpList" class="help-list"></ul>
     </div>
   </div>
 
@@ -291,8 +320,12 @@
     const helpButtonEl = document.getElementById('helpButton');
     const helpOverlayEl = document.getElementById('helpOverlay');
     const helpCloseEl = document.getElementById('helpClose');
+    const helpListEl = document.getElementById('helpList');
     const roomCountEl = document.getElementById('roomCount');
     const toastEl = document.getElementById('toast');
+    const manualTextPanelEl = document.getElementById('manualTextPanel');
+    const manualTextInputEl = document.getElementById('manualTextInput');
+    const manualTextSendEl = document.getElementById('manualTextSend');
     const historyEl = document.getElementById('history');
     const fileInputEl = document.getElementById('fileInput');
     const fileButtonEl = document.getElementById('fileButton');
@@ -311,6 +344,10 @@
     let historyItems = [];
     let sequence = 0;
     let signalSocket = null;
+    // EN: Clipboard read/write requires a secure browser context (HTTPS or localhost).
+    // CN: 浏览器剪贴板读写需要安全上下文（HTTPS 或 localhost）；nginx 反代时以浏览器地址栏协议为准。
+    const forceManualClipboardMode = Boolean(window.__forceManualClipboardMode);
+    const canUseSystemClipboard = !forceManualClipboardMode && window.isSecureContext && Boolean(navigator.clipboard?.readText) && Boolean(navigator.clipboard?.writeText);
 
     window.__serverClipboard = {
       peerId: () => peerId,
@@ -318,6 +355,7 @@
       roomCount: () => roomPeers.size + 1,
       historyCount: () => historyItems.length,
       currentFileName: () => currentFileOffer?.name || '',
+      canUseSystemClipboard: () => canUseSystemClipboard,
     };
 
     function setToast(message, isError = false) {
@@ -363,6 +401,7 @@
         const li = document.createElement('li');
         li.className = 'row';
         li.dataset.testid = 'history-row';
+        li.dataset.itemId = item.id;
         if (selected?.id === item.id) li.classList.add('selected');
 
         const input = document.createElement('input');
@@ -371,21 +410,80 @@
         input.name = 'selected_clipboard_item';
         input.checked = selected?.id === item.id;
         input.dataset.testid = 'history-select';
+        input.dataset.historyId = item.id;
 
         const preview = document.createElement('div');
         preview.className = 'preview';
-        const text = document.createElement('p');
-        text.className = 'preview-text';
-        text.textContent = item.text;
         const meta = document.createElement('div');
         meta.className = 'meta';
         meta.textContent = `#${item.version} - ${formatTime(item.createdAt)}`;
-        preview.append(text, meta);
+        if (canUseSystemClipboard) {
+          const text = document.createElement('p');
+          text.className = 'preview-text';
+          text.textContent = item.text;
+          preview.append(text, meta);
+          li.addEventListener('click', () => copyHistoryItem(item));
+        } else {
+          const text = document.createElement('textarea');
+          text.className = 'received-text';
+          text.readOnly = true;
+          text.value = item.text;
+          text.rows = Math.min(8, Math.max(3, item.text.split(/\r\n|\r|\n/).length));
+          text.dataset.testid = 'history-text';
+          text.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            selectHistoryText(text, item);
+          });
+          text.addEventListener('click', (event) => {
+            event.stopPropagation();
+            selectHistoryText(text, item);
+          });
+          text.addEventListener('focus', () => selectHistoryText(text, item));
+          preview.append(text, meta);
+          li.addEventListener('click', () => selectHistoryText(text, item));
+        }
 
         li.append(input, preview);
-        li.addEventListener('click', () => copyHistoryItem(item));
         historyEl.appendChild(li);
       }
+    }
+
+    function helpItem(title, body) {
+      const li = document.createElement('li');
+      const strong = document.createElement('strong');
+      strong.textContent = title;
+      li.append(strong, document.createTextNode(` ${body}`));
+      return li;
+    }
+
+    function renderHelp() {
+      const items = canUseSystemClipboard
+        ? [
+            ['Use a complex room password.', 'Anyone with this URL can join the room, so avoid short or guessable names.'],
+            ['WebRTC carries the content.', 'Text and file bytes move through WebRTC DataChannels; the server only handles signaling and optional TURN relay, and does not store content.'],
+            ['Click blank space.', 'This reads this device clipboard and sends changes immediately to peers already in the room.'],
+            ['Click a list row.', 'This copies that text into this device clipboard.'],
+            ['Clipboard clicks are fast.', 'This page favors speed, so blank-space clipboard actions are easy to trigger by mistake.'],
+            ['Send File.', 'The file name and size are offered first. Bytes move only after another peer clicks Download.'],
+            ['Watch the room count.', 'Send only after the expected peers are connected.'],
+            ['Late peers see nothing.', 'Peers joining later do not receive earlier text or file offers.'],
+          ]
+        : [
+            ['Manual text mode.', 'Plain HTTP outside localhost cannot use browser clipboard permissions, so paste text into the box and click Send Text.'],
+            ['Replace by paste.', 'The send box selects its current text when focused or after sending, so the next paste replaces it.'],
+            ['Click received text.', 'It is selected automatically when it arrives, and clicking it selects all again for manual copy.'],
+            ['Send File.', 'The file name and size are offered first. Bytes move only after another peer clicks Download.'],
+            ['Connected peers only.', 'Text and file offers go only to peers connected at send time; later peers do not receive earlier data.'],
+          ];
+      helpListEl.replaceChildren(...items.map(([title, body]) => helpItem(title, body)));
+    }
+
+    function renderClipboardMode() {
+      manualTextPanelEl.hidden = canUseSystemClipboard;
+      renderHelp();
+      if (canUseSystemClipboard) return;
+      setToast('Clipboard permission needs HTTPS or localhost. Use the text box for manual send and copy.');
     }
 
     function renderFileOffer() {
@@ -444,6 +542,43 @@
       } catch (err) {
         setToast(err.message || 'Copy failed', true);
       }
+    }
+
+    function markSelectedItem(item) {
+      selected = item;
+      for (const row of historyEl.querySelectorAll('.row')) row.classList.toggle('selected', row.dataset.itemId === item.id);
+      for (const input of historyEl.querySelectorAll('[data-history-id]')) input.checked = input.dataset.historyId === item.id;
+    }
+
+    function selectHistoryText(textarea, item) {
+      markSelectedItem(item);
+      if (document.activeElement !== textarea) textarea.focus();
+      textarea.setSelectionRange(0, textarea.value.length);
+      setToast('Text selected. Copy it manually.');
+    }
+
+    function selectHistoryTextById(messageId, message) {
+      const item = historyItems.find((entry) => entry.id === messageId);
+      if (!item) return;
+      const row = Array.from(historyEl.querySelectorAll('.row')).find((entry) => entry.dataset.itemId === messageId);
+      const textarea = row?.querySelector('.received-text');
+      if (!(textarea instanceof HTMLTextAreaElement)) return;
+      selectHistoryText(textarea, item);
+      if (message) setToast(message);
+    }
+
+    function selectManualTextInput() {
+      if (!manualTextInputEl.value) return;
+      manualTextInputEl.focus();
+      manualTextInputEl.setSelectionRange(0, manualTextInputEl.value.length);
+    }
+
+    function replaceManualTextOnPaste(event) {
+      const text = event.clipboardData?.getData('text/plain');
+      if (text === undefined || !manualTextInputEl.value) return;
+      event.preventDefault();
+      manualTextInputEl.value = text;
+      selectManualTextInput();
     }
 
     function clearLocal() {
@@ -569,7 +704,9 @@
       };
       channel.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        if (message.kind === 'clipboard_text') addItem(message.text, message.id);
+        if (message.kind === 'clipboard_text' && addItem(message.text, message.id) && !canUseSystemClipboard) {
+          selectHistoryTextById(message.id, 'Text received and selected. Copy it manually.');
+        }
         if (message.kind === 'file_offer') receiveFileOffer(remoteId, message);
         if (message.kind === 'file_request') sendFile(remoteId, message.id);
         if (message.kind === 'file_start') receiveFileStart(remoteId, message);
@@ -665,27 +802,36 @@
       setToast('Cleared locally');
     }
 
+    function sendTextToPeers(text, emptyMessage) {
+      if (!text) {
+        setToast(emptyMessage, true);
+        return false;
+      }
+      if (historyItems.at(-1)?.text === text) {
+        setToast('No clipboard changes');
+        return false;
+      }
+
+      const id = `${peerId}-${Date.now()}-${Math.random()}`;
+      addItem(text, id);
+      broadcast({ kind: 'clipboard_text', id, text });
+      setToast(openChannels().length ? 'Sent via P2P' : 'Saved locally; no connected peers received it');
+      return true;
+    }
+
+    function sendManualText() {
+      if (sendTextToPeers(manualTextInputEl.value, 'Text is empty')) selectManualTextInput();
+    }
+
     async function clickClipboard() {
       try {
-        if (!navigator.clipboard) {
+        if (!canUseSystemClipboard) {
           setToast('Clipboard is unavailable. Use HTTPS or localhost.', true);
           return;
         }
 
         const clip = await navigator.clipboard.readText();
-        if (!clip) {
-          setToast('Local clipboard is empty', true);
-          return;
-        }
-        if (historyItems.at(-1)?.text === clip) {
-          setToast('No clipboard changes');
-          return;
-        }
-
-        const id = `${peerId}-${Date.now()}-${Math.random()}`;
-        addItem(clip, id);
-        broadcast({ kind: 'clipboard_text', id, text: clip });
-        setToast(openChannels().length ? 'Sent via P2P' : 'Saved locally, waiting for peers');
+        sendTextToPeers(clip, 'Local clipboard is empty');
       } catch (err) {
         setToast(err.message || 'Clipboard action failed', true);
       }
@@ -706,7 +852,7 @@
         name: file.name,
         size: file.size,
         type: file.type || 'application/octet-stream',
-        status: openChannels().length ? 'ready to download' : 'waiting for peers',
+        status: openChannels().length ? 'ready to download' : 'not sent - no peers',
       };
       renderFileOffer();
       broadcast({
@@ -716,7 +862,7 @@
         size: file.size,
         type: file.type || 'application/octet-stream',
       });
-      setToast(openChannels().length ? 'File is ready to send' : 'File selected, waiting for peers');
+      setToast(openChannels().length ? 'File is ready to send' : 'File selected locally; no connected peers received the offer');
     }
 
     function receiveFileOffer(remoteId, message) {
@@ -854,7 +1000,7 @@
     }
 
     function isBlankClickTarget(target) {
-      return !target.closest('button, input, a, label, .row, .file-card, .help-panel, .help-overlay');
+      return !target.closest('button, input, textarea, a, label, .row, .file-card, .help-panel, .help-overlay');
     }
 
     function openHelp() {
@@ -866,7 +1012,7 @@
     }
 
     window.addEventListener('click', (event) => {
-      if (event.button === 0 && isBlankClickTarget(event.target)) clickClipboard();
+      if (canUseSystemClipboard && event.button === 0 && isBlankClickTarget(event.target)) clickClipboard();
     });
     helpButtonEl.addEventListener('click', openHelp);
     helpCloseEl.addEventListener('click', closeHelp);
@@ -877,12 +1023,21 @@
       if (event.key === 'Escape') closeHelp();
     });
     clearButtonEl.addEventListener('click', clearLocalHistory);
+    manualTextSendEl.addEventListener('click', sendManualText);
+    manualTextInputEl.addEventListener('focus', selectManualTextInput);
+    manualTextInputEl.addEventListener('mouseup', (event) => {
+      if (!manualTextInputEl.value) return;
+      event.preventDefault();
+      selectManualTextInput();
+    });
+    manualTextInputEl.addEventListener('paste', replaceManualTextOnPaste);
     fileButtonEl.addEventListener('click', chooseFile);
     fileInputEl.addEventListener('change', offerSelectedFile);
     downloadButtonEl.addEventListener('click', requestCurrentFile);
 
     async function start() {
       renderRoomCount();
+      renderClipboardMode();
       render();
       renderFileOffer();
       await loadServerConfig();

@@ -7,7 +7,7 @@ P2P Clip Bridge Server is a small Rust server for sharing clipboard text and fil
 - The room password is the URL path, for example `/my-room`.
 - Clipboard text and file bytes are transferred over WebRTC DataChannels.
 - WebSocket is used only for WebRTC signaling at `/clip_bridge_server`.
-- The server does not store clipboard text or files.
+- The server does not store clipboard text or files, and peers joining later do not receive past text or file offers.
 - Files are offered by name and size first; bytes are sent only when another peer clicks Download.
 - A built-in UDP TURN relay is started by the same process for fallback when direct P2P fails.
 
@@ -72,6 +72,14 @@ turn:<current-host>:<turn-port>
 ```
 
 Public STUN servers are listed in `src/ice.rs` so source builders can tune them for their region.
+
+## Security Notes
+
+Clipboard automation is available only in secure browser contexts: HTTPS or localhost. If you put this behind nginx and users open an `https://` URL, the browser reports a secure context and the original clipboard click flow is used.
+
+On a non-localhost plain HTTP URL, file transfer still works, but browsers block clipboard read/write. In that mode the page shows a manual text box for sending text, and received text can be clicked to select all so users can copy it themselves.
+
+WebRTC sends each text item or file offer only to peers connected at the moment you send it. A peer that joins the room later will not receive earlier text or file data from the server or from browser history.
 
 ## Test
 

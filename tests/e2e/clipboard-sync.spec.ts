@@ -92,6 +92,11 @@ test('left browser sends clipboard and file to right browser over WebRTC data ch
       await left.getByTestId('help-open').click();
       await expect(left.getByTestId('help-overlay')).toHaveClass(/show/);
       await expect(left.getByTestId('help-overlay')).toContainText('Click blank space');
+      await expect(left.getByTestId('help-overlay')).toContainText('Use a complex room password');
+      await expect(left.getByTestId('help-overlay')).toContainText('WebRTC carries the content');
+      await expect(left.getByTestId('help-overlay')).toContainText('Clipboard clicks are fast');
+      await expect(left.getByTestId('help-overlay')).toContainText('Watch the room count');
+      await expect(left.getByTestId('help-overlay')).toContainText('Late peers see nothing');
       await left.getByTestId('help-close').click();
       await expect(left.getByTestId('help-overlay')).not.toHaveClass(/show/);
 
@@ -237,6 +242,89 @@ test('relay-only browsers transfer files through the built-in TURN server', asyn
       body: await right.screenshot({ fullPage: true }),
       contentType: 'image/png',
     });
+  } finally {
+    await leftContext.close();
+    await rightContext.close();
+  }
+});
+
+test('manual text mode works when clipboard permissions are unavailable', async ({ browser, baseURL }) => {
+  const room = `manual-text-e2e-${Date.now()}`;
+  const roomUrl = `${baseURL}/${room}`;
+  const payload = `manual text from left page ${Date.now()}`;
+  const replacement = `replacement manual text ${Date.now()}`;
+
+  const leftContext = await browser.newContext({ viewport: { width: 760, height: 720 } });
+  const rightContext = await browser.newContext({ viewport: { width: 760, height: 720 } });
+
+  try {
+    await Promise.all([
+      leftContext.addInitScript(() => {
+        window.__forceManualClipboardMode = true;
+      }),
+      rightContext.addInitScript(() => {
+        window.__forceManualClipboardMode = true;
+      }),
+    ]);
+
+    const left = await leftContext.newPage();
+    const right = await rightContext.newPage();
+
+    await Promise.all([left.goto(roomUrl), right.goto(roomUrl)]);
+    await Promise.all([
+      expect(left.getByTestId('manual-text-panel')).toBeVisible(),
+      expect(right.getByTestId('manual-text-panel')).toBeVisible(),
+    ]);
+    await right.getByTestId('help-open').click();
+    await expect(right.getByTestId('help-overlay')).toContainText('Manual text mode');
+    await expect(right.getByTestId('help-overlay')).toContainText('Replace by paste');
+    await expect(right.getByTestId('help-overlay')).not.toContainText('Clipboard clicks are fast');
+    await expect(right.getByTestId('help-overlay')).not.toContainText('Use a complex room password');
+    await right.getByTestId('help-close').click();
+
+    await expect.poll(() => peerCount(left)).toBe(1);
+    await expect.poll(() => peerCount(right)).toBe(1);
+
+    await left.getByTestId('manual-text-input').fill(payload);
+    await left.getByTestId('manual-text-send').click();
+
+    await expect(left.getByTestId('toast')).toHaveText('Sent via P2P');
+    await expect
+      .poll(() => left.getByTestId('manual-text-input').evaluate((el) => {
+        const textarea = el as HTMLTextAreaElement;
+        return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+      }))
+      .toBe(payload);
+    await expect(right.getByTestId('history-text')).toHaveValue(payload);
+    await expect(right.getByTestId('toast')).toHaveText('Text received and selected. Copy it manually.');
+    await expect
+      .poll(() => right.getByTestId('history-text').evaluate((el) => {
+        const textarea = el as HTMLTextAreaElement;
+        return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+      }))
+      .toBe(payload);
+
+    await left.getByTestId('manual-text-input').evaluate((el, text) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', text);
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }, replacement);
+    await expect(left.getByTestId('manual-text-input')).toHaveValue(replacement);
+    await expect
+      .poll(() => left.getByTestId('manual-text-input').evaluate((el) => {
+        const textarea = el as HTMLTextAreaElement;
+        return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+      }))
+      .toBe(replacement);
+
+    await right.getByTestId('history-text').click();
+    await expect(right.getByTestId('toast')).toHaveText('Text selected. Copy it manually.');
+    await expect
+      .poll(() => right.getByTestId('history-text').evaluate((el) => {
+        const textarea = el as HTMLTextAreaElement;
+        return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+      }))
+      .toBe(payload);
   } finally {
     await leftContext.close();
     await rightContext.close();
