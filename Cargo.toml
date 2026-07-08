@@ -1,6 +1,6 @@
 [package]
 name = "p2p_clip_bridge_server"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "A small P2P WebRTC clipboard and file bridge server for password-in-URL rooms"
 license = "MIT OR Apache-2.0"
