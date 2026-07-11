@@ -23,6 +23,18 @@ p2p_clip_bridge_server -i 203.0.113.10 -u user -c pass -p 7259
 p2p_clip_bridge_server -i 203.0.113.10 -u user -c pass -p 7259 -t 3478
 ```
 
+Docker 启动示例：
+
+```bash
+docker run --rm \
+  -p 7259:7259/tcp \
+  -p 3478:3478/udp \
+  p2p-clip-bridge-server \
+  -p 7259 -t 3478 -i 203.0.113.10 -u user -c pass
+```
+
+`-i` 是内置 TURN relay 使用的公网 IP，不是 HTTP 监听地址。
+
 也可以使用环境变量：
 
 ```bash
@@ -30,6 +42,19 @@ export P2P_CLIP_BRIDGE_SERVER_TURN_PUBLIC_IP=127.0.0.1
 export P2P_CLIP_BRIDGE_SERVER_TURN_USERNAME=user
 export P2P_CLIP_BRIDGE_SERVER_TURN_CREDENTIAL=pass
 p2p_clip_bridge_server -p 7259
+```
+
+Docker 也可以使用同样的环境变量：
+
+```bash
+docker run --rm \
+  -p 7259:7259/tcp \
+  -p 3478:3478/udp \
+  -e P2P_CLIP_BRIDGE_SERVER_TURN_PUBLIC_IP=203.0.113.10 \
+  -e P2P_CLIP_BRIDGE_SERVER_TURN_USERNAME=user \
+  -e P2P_CLIP_BRIDGE_SERVER_TURN_CREDENTIAL=pass \
+  p2p-clip-bridge-server \
+  -p 7259 -t 3478
 ```
 
 打开：

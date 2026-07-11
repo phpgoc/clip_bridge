@@ -23,6 +23,18 @@ With an explicit TURN UDP port:
 p2p_clip_bridge_server -i 203.0.113.10 -u user -c pass -p 7259 -t 3478
 ```
 
+Docker run example:
+
+```bash
+docker run --rm \
+  -p 7259:7259/tcp \
+  -p 3478:3478/udp \
+  p2p-clip-bridge-server \
+  -p 7259 -t 3478 -i 203.0.113.10 -u user -c pass
+```
+
+`-i` is the public IP used by the built-in TURN relay. It is not the HTTP bind address.
+
 Environment variables are also supported:
 
 ```bash
@@ -30,6 +42,19 @@ export P2P_CLIP_BRIDGE_SERVER_TURN_PUBLIC_IP=127.0.0.1
 export P2P_CLIP_BRIDGE_SERVER_TURN_USERNAME=user
 export P2P_CLIP_BRIDGE_SERVER_TURN_CREDENTIAL=pass
 p2p_clip_bridge_server -p 7259
+```
+
+Docker can use the same environment variables:
+
+```bash
+docker run --rm \
+  -p 7259:7259/tcp \
+  -p 3478:3478/udp \
+  -e P2P_CLIP_BRIDGE_SERVER_TURN_PUBLIC_IP=203.0.113.10 \
+  -e P2P_CLIP_BRIDGE_SERVER_TURN_USERNAME=user \
+  -e P2P_CLIP_BRIDGE_SERVER_TURN_CREDENTIAL=pass \
+  p2p-clip-bridge-server \
+  -p 7259 -t 3478
 ```
 
 Open:
