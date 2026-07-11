@@ -26,6 +26,8 @@ p2p_clip_bridge_server -i 203.0.113.10 -u user -c pass -p 7259 -t 3478
 Docker 启动示例：
 
 ```bash
+docker build -t p2p-clip-bridge-server:0.2.0 .
+
 docker run --rm \
   -p 7259:7259/tcp \
   -p 3478:3478/udp \
@@ -34,6 +36,12 @@ docker run --rm \
 ```
 
 `-i` 是内置 TURN relay 使用的公网 IP，不是 HTTP 监听地址。
+
+在 Apple Silicon Mac 上，Docker 默认会构建 `linux/arm64` 镜像。如果要构建 `amd64` 镜像，可以显式指定：
+
+```bash
+docker build --platform linux/amd64 -t p2p-clip-bridge-server:0.2.0 .
+```
 
 也可以使用环境变量：
 

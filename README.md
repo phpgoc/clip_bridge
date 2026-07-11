@@ -26,6 +26,8 @@ p2p_clip_bridge_server -i 203.0.113.10 -u user -c pass -p 7259 -t 3478
 Docker run example:
 
 ```bash
+docker build -t p2p-clip-bridge-server:0.2.0 .
+
 docker run --rm \
   -p 7259:7259/tcp \
   -p 3478:3478/udp \
@@ -34,6 +36,12 @@ docker run --rm \
 ```
 
 `-i` is the public IP used by the built-in TURN relay. It is not the HTTP bind address.
+
+On Apple Silicon Macs, Docker builds a `linux/arm64` image by default. To build an `amd64` image instead, use:
+
+```bash
+docker build --platform linux/amd64 -t p2p-clip-bridge-server:0.2.0 .
+```
 
 Environment variables are also supported:
 
