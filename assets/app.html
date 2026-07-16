@@ -123,10 +123,30 @@
       color: var(--text);
       font: inherit;
       line-height: 1.45;
+    }
+    .manual-text-input {
       resize: vertical;
     }
     .manual-text-input { min-height: 96px; padding: 10px; }
-    .received-text { min-height: 76px; padding: 8px; cursor: text; }
+    .received-text {
+      min-height: 76px;
+      padding: 10px;
+      cursor: text;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      -webkit-user-select: text;
+      user-select: text;
+      touch-action: pan-y;
+    }
+    .received-text-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .received-text-footer .meta { margin-top: 0; }
+    .select-text-button { min-height: 34px; padding: 0 10px; }
     .manual-text-actions { display: flex; justify-content: flex-end; }
     .file-card {
       display: none;
@@ -424,24 +444,28 @@
           preview.append(text, meta);
           li.addEventListener('click', () => copyHistoryItem(item));
         } else {
-          const text = document.createElement('textarea');
+          li.classList.add('manual');
+          const text = document.createElement('div');
           text.className = 'received-text';
-          text.readOnly = true;
-          text.value = item.text;
-          text.rows = Math.min(8, Math.max(3, item.text.split(/\r\n|\r|\n/).length));
+          text.textContent = item.text;
+          text.tabIndex = 0;
+          text.setAttribute('role', 'textbox');
+          text.setAttribute('aria-readonly', 'true');
+          text.setAttribute('aria-label', 'Received text');
           text.dataset.testid = 'history-text';
-          text.addEventListener('mousedown', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            selectHistoryText(text, item);
-          });
-          text.addEventListener('click', (event) => {
-            event.stopPropagation();
-            selectHistoryText(text, item);
-          });
-          text.addEventListener('focus', () => selectHistoryText(text, item));
-          preview.append(text, meta);
-          li.addEventListener('click', () => selectHistoryText(text, item));
+          text.addEventListener('click', (event) => event.stopPropagation());
+
+          const selectButton = document.createElement('button');
+          selectButton.className = 'button select-text-button';
+          selectButton.type = 'button';
+          selectButton.textContent = 'Select all';
+          selectButton.dataset.testid = 'history-select-all';
+          selectButton.addEventListener('click', () => selectHistoryText(text, item));
+
+          const footer = document.createElement('div');
+          footer.className = 'received-text-footer';
+          footer.append(meta, selectButton);
+          preview.append(text, footer);
         }
 
         li.append(input, preview);
@@ -472,7 +496,7 @@
         : [
             ['Manual text mode.', 'Plain HTTP outside localhost cannot use browser clipboard permissions, so paste text into the box and click Send Text.'],
             ['Replace by paste.', 'The send box selects its current text when focused or after sending, so the next paste replaces it.'],
-            ['Click received text.', 'It is selected automatically when it arrives, and clicking it selects all again for manual copy.'],
+            ['Copy received text.', 'Long-press the text to select part of it, or use Select all before copying.'],
             ['Send File.', 'The file name and size are offered first. Bytes move only after another peer clicks Download.'],
             ['Connected peers only.', 'Text and file offers go only to peers connected at send time; later peers do not receive earlier data.'],
           ];
@@ -550,21 +574,15 @@
       for (const input of historyEl.querySelectorAll('[data-history-id]')) input.checked = input.dataset.historyId === item.id;
     }
 
-    function selectHistoryText(textarea, item) {
+    function selectHistoryText(text, item) {
       markSelectedItem(item);
-      if (document.activeElement !== textarea) textarea.focus();
-      textarea.setSelectionRange(0, textarea.value.length);
+      text.focus({ preventScroll: true });
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      selection.removeAllRanges();
+      selection.addRange(range);
       setToast('Text selected. Copy it manually.');
-    }
-
-    function selectHistoryTextById(messageId, message) {
-      const item = historyItems.find((entry) => entry.id === messageId);
-      if (!item) return;
-      const row = Array.from(historyEl.querySelectorAll('.row')).find((entry) => entry.dataset.itemId === messageId);
-      const textarea = row?.querySelector('.received-text');
-      if (!(textarea instanceof HTMLTextAreaElement)) return;
-      selectHistoryText(textarea, item);
-      if (message) setToast(message);
     }
 
     function selectManualTextInput() {
@@ -705,7 +723,7 @@
       channel.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.kind === 'clipboard_text' && addItem(message.text, message.id) && !canUseSystemClipboard) {
-          selectHistoryTextById(message.id, 'Text received and selected. Copy it manually.');
+          setToast('Text received. Long-press it to select, or use Select all.');
         }
         if (message.kind === 'file_offer') receiveFileOffer(remoteId, message);
         if (message.kind === 'file_request') sendFile(remoteId, message.id);

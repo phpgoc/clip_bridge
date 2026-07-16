@@ -251,11 +251,11 @@ test('relay-only browsers transfer files through the built-in TURN server', asyn
 test('manual text mode works when clipboard permissions are unavailable', async ({ browser, baseURL }) => {
   const room = `manual-text-e2e-${Date.now()}`;
   const roomUrl = `${baseURL}/${room}`;
-  const payload = `manual text from left page ${Date.now()}`;
+  const payload = `manual text from left page ${Date.now()}\n${'A long mobile-friendly line of received text. '.repeat(12)}`;
   const replacement = `replacement manual text ${Date.now()}`;
 
   const leftContext = await browser.newContext({ viewport: { width: 760, height: 720 } });
-  const rightContext = await browser.newContext({ viewport: { width: 760, height: 720 } });
+  const rightContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
   try {
     await Promise.all([
@@ -295,14 +295,9 @@ test('manual text mode works when clipboard permissions are unavailable', async 
         return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
       }))
       .toBe(payload);
-    await expect(right.getByTestId('history-text')).toHaveValue(payload);
-    await expect(right.getByTestId('toast')).toHaveText('Text received and selected. Copy it manually.');
-    await expect
-      .poll(() => right.getByTestId('history-text').evaluate((el) => {
-        const textarea = el as HTMLTextAreaElement;
-        return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
-      }))
-      .toBe(payload);
+    await expect(right.getByTestId('history-text')).toHaveText(payload);
+    await expect(right.getByTestId('toast')).toHaveText('Text received. Long-press it to select, or use Select all.');
+    await expect(right.getByTestId('history-text')).toHaveCSS('user-select', 'text');
 
     await left.getByTestId('manual-text-input').evaluate((el, text) => {
       const data = new DataTransfer();
@@ -317,13 +312,10 @@ test('manual text mode works when clipboard permissions are unavailable', async 
       }))
       .toBe(replacement);
 
-    await right.getByTestId('history-text').click();
+    await right.getByTestId('history-select-all').click();
     await expect(right.getByTestId('toast')).toHaveText('Text selected. Copy it manually.');
     await expect
-      .poll(() => right.getByTestId('history-text').evaluate((el) => {
-        const textarea = el as HTMLTextAreaElement;
-        return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
-      }))
+      .poll(() => right.evaluate(() => window.getSelection()?.toString()))
       .toBe(payload);
   } finally {
     await leftContext.close();
